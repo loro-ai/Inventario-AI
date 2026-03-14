@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Home, Package, ShoppingCart, Users, ShoppingBag, MessageCircle, LogOut, Store } from 'lucide-react'
 
@@ -14,6 +14,8 @@ const navItems = [
 export default function AppLayout() {
   const { usuario, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const esChat = location.pathname === '/chat'
 
   const handleLogout = () => { logout(); navigate('/login') }
 
@@ -60,7 +62,7 @@ export default function AppLayout() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 pb-24 md:pb-6 overflow-auto">
+      <main className={`flex-1 ${esChat ? 'overflow-hidden' : 'pb-24 md:pb-6 overflow-auto'}`}>
         <Outlet />
       </main>
 

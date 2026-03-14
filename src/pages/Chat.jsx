@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Send, Trash2, MessageCircle, Sparkles, X, Plus, ShoppingCart, CreditCard, DollarSign, Mic, MicOff } from 'lucide-react'
+import { Send, Trash2, MessageCircle, Sparkles, X, Plus, ShoppingCart, CreditCard, DollarSign } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../lib/api'
 import { fechaRelativa } from '../lib/utils'
@@ -58,49 +58,8 @@ export default function Chat() {
   const [enviando, setEnviando] = useState(false)
   const [loading, setLoading] = useState(true)
   const [confirmarLimpiar, setConfirmarLimpiar] = useState(false)
-  const [escuchando, setEscuchando] = useState(false)
-  const [vozSoportada] = useState(() => 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window)
-  const recognitionRef = useRef(null)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
-
-  // Inicializar Web Speech API
-  useEffect(() => {
-    if (!vozSoportada) return
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    const rec = new SR()
-    rec.lang = 'es-CO'
-    rec.continuous = false
-    rec.interimResults = true
-
-    rec.onresult = (e) => {
-      const transcript = Array.from(e.results)
-        .map(r => r[0].transcript)
-        .join('')
-      setInput(transcript)
-    }
-
-    rec.onend = () => setEscuchando(false)
-    rec.onerror = (e) => {
-      if (e.error !== 'no-speech') toast.error('Error con el micrófono')
-      setEscuchando(false)
-    }
-
-    recognitionRef.current = rec
-    return () => rec.abort()
-  }, [vozSoportada])
-
-  const toggleVoz = () => {
-    if (!vozSoportada) { toast.error('Tu navegador no soporta voz. Usa Chrome.'); return }
-    if (escuchando) {
-      recognitionRef.current?.stop()
-      setEscuchando(false)
-    } else {
-      setInput('')
-      recognitionRef.current?.start()
-      setEscuchando(true)
-    }
-  }
 
   const cargarHistorial = () => {
     api.get('/api/chat/historial')
@@ -154,7 +113,7 @@ export default function Chat() {
   const vacio = !loading && mensajes.length === 0
 
   return (
-    <div className="flex flex-col h-[calc(100svh-112px)] md:h-[calc(100svh-56px)] max-w-2xl mx-auto">
+    <div className="flex flex-col h-[calc(100svh-56px-64px)] md:h-[calc(100svh-100px)] max-w-2xl mx-auto">
 
       {/* Header chat */}
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-purple-100 flex-shrink-0">
@@ -215,55 +174,29 @@ export default function Chat() {
       {/* Input */}
       <div className="px-4 py-3 bg-white border-t border-purple-100 flex-shrink-0">
         <div className="flex gap-2 items-end">
-          <div className="flex-1 relative">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={escuchando ? '🎙️ Escuchando...' : 'Cuéntame lo que pasó...'}
-              rows={1}
-              disabled={enviando}
-              className={`w-full resize-none px-4 py-3 pr-12 rounded-2xl border text-base focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-60 max-h-28 transition-colors ${
-                escuchando
-                  ? 'border-red-400 bg-red-50 ring-2 ring-red-300'
-                  : 'border-gray-200 bg-gray-50'
-              }`}
-              style={{ minHeight: '48px' }}
-              onInput={e => {
-                e.target.style.height = 'auto'
-                e.target.style.height = Math.min(e.target.scrollHeight, 112) + 'px'
-              }}
-            />
-            {/* Botón micrófono dentro del input */}
-            {vozSoportada && (
-              <button
-                type="button"
-                onClick={toggleVoz}
-                disabled={enviando}
-                className={`absolute right-3 bottom-3 p-1.5 rounded-xl transition-colors ${
-                  escuchando
-                    ? 'text-red-500 bg-red-100 animate-pulse'
-                    : 'text-gray-400 hover:text-[#7C3AED] hover:bg-purple-50'
-                }`}
-              >
-                {escuchando ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              </button>
-            )}
-          </div>
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Cuéntame lo que pasó..."
+            rows={1}
+            disabled={enviando}
+            className="flex-1 resize-none px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 text-base focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-60 max-h-28"
+            style={{ minHeight: '48px' }}
+            onInput={e => {
+              e.target.style.height = 'auto'
+              e.target.style.height = Math.min(e.target.scrollHeight, 112) + 'px'
+            }}
+          />
           <button
-            onClick={() => { recognitionRef.current?.stop(); enviar() }}
+            onClick={() => enviar()}
             disabled={!input.trim() || enviando}
             className="w-12 h-12 rounded-2xl bg-[#7C3AED] text-white flex items-center justify-center hover:bg-[#5B21B6] transition-colors disabled:opacity-40 flex-shrink-0"
           >
             <Send className="w-5 h-5" />
           </button>
         </div>
-        {escuchando && (
-          <p className="text-xs text-red-500 font-semibold mt-1.5 text-center animate-pulse">
-            🎙️ Hablá ahora — toca el micrófono o Enviar cuando termines
-          </p>
-        )}
       </div>
 
       {/* Modal confirmar limpiar historial */}
