@@ -88,7 +88,7 @@ export default function Ventas() {
     } finally { setCreando(false) }
   }
 
-
+  const handleEditar = (v) => {
     setEditando(v._id)
     setForm({ precioVenta: v.precioVenta, precioCompra: v.precioCompra, nota: v.nota || '' })
   }
