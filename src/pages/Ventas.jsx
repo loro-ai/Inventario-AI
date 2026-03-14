@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { Search, X, ShoppingCart, Edit2, Trash2, TrendingUp, Calendar, Plus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, X, ShoppingCart, Edit2, Trash2, TrendingUp, Calendar, Plus, User } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../lib/api'
 import { formatCOP, fechaRelativa } from '../lib/utils'
@@ -14,23 +14,23 @@ export default function Ventas() {
   const [hasta, setHasta] = useState(HOY)
   const [loading, setLoading] = useState(true)
   const [editando, setEditando] = useState(null)
-  const [form, setForm] = useState({ precioVenta: 0, precioCompra: 0, nota: '' })
+  const [formEdit, setFormEdit] = useState({ nota: '', cliente: '' })
   const [guardando, setGuardando] = useState(false)
   const [confirmando, setConfirmando] = useState(null)
 
   // Nueva venta
   const [mostrarNueva, setMostrarNueva] = useState(false)
-  const [nuevaForm, setNuevaForm] = useState({ nombreProducto: '', cantidad: 1, nota: '' })
+  const [clienteNueva, setClienteNueva] = useState('')
+  const [notaNueva, setNotaNueva] = useState('')
+  const [itemsCarrito, setItemsCarrito] = useState([])
   const [busquedaProducto, setBusquedaProducto] = useState('')
-  const [productos, setProductos] = useState([])
-  const [productoSeleccionado, setProductoSeleccionado] = useState(null)
+  const [productosResultado, setProductosResultado] = useState([])
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false)
   const [creando, setCreando] = useState(false)
-  const busquedaRef = useRef(null)
 
   const cargar = () => {
     setLoading(true)
-    api.get('/api/ventas', { params: { desde, hasta: hasta + 'T23:59:59' } })  // ✅
+    api.get('/api/ventas', { params: { desde, hasta: hasta + 'T23:59:59' } })
       .then(r => setVentas(r.data))
       .catch(() => toast.error('Error cargando ventas'))
       .finally(() => setLoading(false))
@@ -38,47 +38,80 @@ export default function Ventas() {
 
   useEffect(() => { cargar() }, [desde, hasta])
 
-  const ventasFiltradas = ventas.filter(v =>
-    v.nombreProducto?.toLowerCase().includes(busqueda.toLowerCase()) ||
-    v.nota?.toLowerCase().includes(busqueda.toLowerCase())
-  )
-
-  const totalUtilidad = ventasFiltradas.reduce((acc, v) => acc + (v.utilidadTotal || 0), 0)
-  const totalVentas = ventasFiltradas.reduce((acc, v) => acc + (v.precioVenta * v.cantidadVendida || 0), 0)
-
-  // Buscar productos al escribir
+  // Buscar productos
   useEffect(() => {
-    if (busquedaProducto.trim().length < 1) { setProductos([]); return }
+    if (busquedaProducto.trim().length < 1) { setProductosResultado([]); return }
     const t = setTimeout(() => {
       api.get('/api/productos', { params: { busqueda: busquedaProducto } })
-        .then(r => setProductos(r.data.slice(0, 6)))
+        .then(r => setProductosResultado(r.data.slice(0, 6)))
         .catch(() => {})
     }, 300)
     return () => clearTimeout(t)
   }, [busquedaProducto])
 
-  const seleccionarProducto = (p) => {
-    setProductoSeleccionado(p)
-    setBusquedaProducto(p.nombre)
-    setNuevaForm(f => ({ ...f, nombreProducto: p.nombre }))
+  const ventasFiltradas = ventas.filter(v => {
+    const nombres = v.items?.map(i => i.nombreProducto).join(' ') || ''
+    const cli = v.cliente || ''
+    return nombres.toLowerCase().includes(busqueda.toLowerCase()) ||
+      cli.toLowerCase().includes(busqueda.toLowerCase()) ||
+      v.nota?.toLowerCase().includes(busqueda.toLowerCase())
+  })
+
+  const totalUtilidad = ventasFiltradas.reduce((acc, v) => acc + (v.utilidadTotal || 0), 0)
+  const totalVentas = ventasFiltradas.reduce((acc, v) => acc + (v.totalVenta || 0), 0)
+
+  const agregarAlCarrito = (p) => {
+    setBusquedaProducto('')
+    setProductosResultado([])
     setMostrarSugerencias(false)
+    setItemsCarrito(prev => {
+      const existente = prev.find(i => i.productoId === p._id)
+      if (existente) {
+        return prev.map(i => i.productoId === p._id
+          ? { ...i, cantidad: Math.min(i.cantidad + 1, p.cantidad) }
+          : i)
+      }
+      return [...prev, {
+        productoId: p._id,
+        nombreProducto: p.nombre,
+        cantidad: 1,
+        maxCantidad: p.cantidad,
+        precioVenta: p.precioVenta,
+        talla: p.talla,
+        color: p.color
+      }]
+    })
   }
 
+  const actualizarCantidadCarrito = (productoId, cantidad) => {
+    const val = parseInt(cantidad) || 1
+    setItemsCarrito(prev => prev.map(i =>
+      i.productoId === productoId ? { ...i, cantidad: Math.min(Math.max(1, val), i.maxCantidad) } : i
+    ))
+  }
+
+  const quitarDelCarrito = (productoId) => {
+    setItemsCarrito(prev => prev.filter(i => i.productoId !== productoId))
+  }
+
+  const totalCarrito = itemsCarrito.reduce((s, i) => s + i.precioVenta * i.cantidad, 0)
+
   const abrirNueva = () => {
-    setNuevaForm({ nombreProducto: '', cantidad: 1, nota: '' })
+    setClienteNueva('')
+    setNotaNueva('')
+    setItemsCarrito([])
     setBusquedaProducto('')
-    setProductoSeleccionado(null)
     setMostrarNueva(true)
   }
 
   const handleCrear = async () => {
-    if (!nuevaForm.nombreProducto.trim()) { toast.error('Selecciona un producto'); return }
+    if (itemsCarrito.length === 0) { toast.error('Agrega al menos un producto'); return }
     setCreando(true)
     try {
       await api.post('/api/ventas', {
-        nombreProducto: nuevaForm.nombreProducto,
-        cantidad: nuevaForm.cantidad,
-        nota: nuevaForm.nota
+        cliente: clienteNueva || undefined,
+        nota: notaNueva || undefined,
+        items: itemsCarrito.map(i => ({ productoId: i.productoId, cantidad: i.cantidad }))
       })
       toast.success('¡Venta registrada!')
       setMostrarNueva(false)
@@ -90,13 +123,13 @@ export default function Ventas() {
 
   const handleEditar = (v) => {
     setEditando(v._id)
-    setForm({ precioVenta: v.precioVenta, precioCompra: v.precioCompra, nota: v.nota || '' })
+    setFormEdit({ nota: v.nota || '', cliente: v.cliente || '' })
   }
 
   const handleGuardar = async () => {
     setGuardando(true)
     try {
-      await api.put(`/api/ventas/${editando}`, form)
+      await api.put(`/api/ventas/${editando}`, formEdit)
       toast.success('Venta actualizada')
       setEditando(null)
       cargar()
@@ -156,21 +189,15 @@ export default function Ventas() {
       {/* Búsqueda */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input type="text" placeholder="Buscar por producto o nota..."
+        <input type="text" placeholder="Buscar por producto, cliente o nota..."
           value={busqueda} onChange={e => setBusqueda(e.target.value)}
           className="w-full pl-10 pr-4 py-3 rounded-xl border border-purple-100 bg-white text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
-        {busqueda && (
-          <button onClick={() => setBusqueda('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-            <X className="w-4 h-4 text-gray-400" />
-          </button>
-        )}
+        {busqueda && <button onClick={() => setBusqueda('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-gray-400" /></button>}
       </div>
 
       {/* Lista */}
       {loading ? (
-        <div className="space-y-3">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-white rounded-2xl border border-purple-100 animate-pulse" />)}
-        </div>
+        <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-white rounded-2xl border border-purple-100 animate-pulse" />)}</div>
       ) : ventasFiltradas.length === 0 ? (
         <div className="bg-white rounded-2xl border border-purple-100 p-8 text-center">
           <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -182,26 +209,28 @@ export default function Ventas() {
             <div key={v._id} className="bg-white rounded-2xl border border-purple-100 p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-gray-900 text-base leading-tight">{v.nombreProducto}</h3>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
-                      x{v.cantidadVendida}
-                    </span>
+                  {/* Items */}
+                  <div className="space-y-0.5">
+                    {v.items?.map((item, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="font-bold text-gray-900 text-sm">{item.nombreProducto}</span>
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">x{item.cantidadVendida}</span>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">{fechaRelativa(v.fecha)}{v.nota ? ` · ${v.nota}` : ''}</p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {v.cliente && <span className="text-xs text-gray-500 flex items-center gap-0.5"><User className="w-3 h-3" />{v.cliente}</span>}
+                    <span className="text-xs text-gray-400">{fechaRelativa(v.fecha)}</span>
+                    {v.nota && <span className="text-xs text-gray-400">· {v.nota}</span>}
+                  </div>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
-                  <button onClick={() => handleEditar(v)} className="p-2 rounded-lg hover:bg-purple-50 text-gray-400 hover:text-[#7C3AED] transition-colors">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => setConfirmando(v)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <button onClick={() => handleEditar(v)} className="p-2 rounded-lg hover:bg-purple-50 text-gray-400 hover:text-[#7C3AED] transition-colors"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => setConfirmando(v)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
               <div className="flex gap-4 mt-3">
-                <div><p className="text-xs text-gray-400">Venta</p><p className="font-bold text-gray-900 text-sm">{formatCOP(v.precioVenta)}</p></div>
-                <div><p className="text-xs text-gray-400">Compra</p><p className="font-bold text-gray-900 text-sm">{formatCOP(v.precioCompra)}</p></div>
+                <div><p className="text-xs text-gray-400">Total venta</p><p className="font-bold text-gray-900 text-sm">{formatCOP(v.totalVenta)}</p></div>
                 <div><p className="text-xs text-gray-400">Ganancia</p><p className="font-bold text-emerald-600 text-sm">{formatCOP(v.utilidadTotal)}</p></div>
               </div>
             </div>
@@ -210,10 +239,10 @@ export default function Ventas() {
       )}
 
       {/* Botón nueva venta */}
-      <button
-        onClick={abrirNueva}
-        className="fixed bottom-24 right-4 md:bottom-8 w-14 h-14 bg-[#7C3AED] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#5B21B6] transition-colors z-30"
-      ><Plus className="w-7 h-7" /></button>
+      <button onClick={abrirNueva}
+        className="fixed bottom-24 right-4 md:bottom-8 w-14 h-14 bg-[#7C3AED] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#5B21B6] transition-colors z-30">
+        <Plus className="w-7 h-7" />
+      </button>
 
       {/* Modal nueva venta */}
       {mostrarNueva && (
@@ -222,47 +251,41 @@ export default function Ventas() {
             <div className="p-5">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-xl font-black text-gray-900">Nueva venta</h2>
-                <button onClick={() => setMostrarNueva(false)} className="p-2 rounded-xl hover:bg-gray-100">
-                  <X className="w-5 h-5" />
-                </button>
+                <button onClick={() => setMostrarNueva(false)} className="p-2 rounded-xl hover:bg-gray-100"><X className="w-5 h-5" /></button>
               </div>
               <div className="space-y-4">
 
-                {/* Buscador producto */}
+                {/* Cliente opcional */}
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Producto *</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Cliente (opcional)</label>
+                  <input type="text" value={clienteNueva} onChange={e => setClienteNueva(e.target.value)}
+                    placeholder="Ej: Ana García"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                </div>
+
+                {/* Buscador productos */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Agregar producto</label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      ref={busquedaRef}
-                      type="text"
-                      placeholder="Buscar en inventario..."
+                    <input type="text" placeholder="Buscar en inventario..."
                       value={busquedaProducto}
-                      onChange={e => {
-                        setBusquedaProducto(e.target.value)
-                        setProductoSeleccionado(null)
-                        setNuevaForm(f => ({ ...f, nombreProducto: e.target.value }))
-                        setMostrarSugerencias(true)
-                      }}
+                      onChange={e => { setBusquedaProducto(e.target.value); setMostrarSugerencias(true) }}
                       onFocus={() => setMostrarSugerencias(true)}
-                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400"
-                    />
+                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
                     {busquedaProducto && (
-                      <button onClick={() => { setBusquedaProducto(''); setProductoSeleccionado(null); setNuevaForm(f => ({ ...f, nombreProducto: '' })) }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <X className="w-4 h-4 text-gray-400" />
-                      </button>
+                      <button type="button" onClick={() => { setBusquedaProducto(''); setProductosResultado([]) }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-gray-400" /></button>
                     )}
-                    {/* Sugerencias */}
-                    {mostrarSugerencias && productos.length > 0 && (
+                    {mostrarSugerencias && productosResultado.length > 0 && (
                       <div className="absolute z-10 w-full mt-1 bg-white rounded-xl border border-purple-100 shadow-lg overflow-hidden">
-                        {productos.map(p => (
-                          <button key={p._id} onMouseDown={() => seleccionarProducto(p)}
+                        {productosResultado.map(p => (
+                          <button key={p._id} type="button" onMouseDown={() => agregarAlCarrito(p)}
                             className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors border-b border-gray-50 last:border-0">
                             <div className="flex items-center justify-between">
                               <div>
                                 <p className="font-bold text-gray-900 text-sm">{p.nombre}</p>
-                                <p className="text-xs text-gray-400">{p.talla && `Talla ${p.talla} · `}{p.color}</p>
+                                <p className="text-xs text-gray-400">{p.talla && `T.${p.talla} · `}{p.color}</p>
                               </div>
                               <div className="text-right">
                                 <p className="text-sm font-bold text-[#7C3AED]">{formatCOP(p.precioVenta)}</p>
@@ -274,55 +297,46 @@ export default function Ventas() {
                       </div>
                     )}
                   </div>
-                  {/* Preview producto seleccionado */}
-                  {productoSeleccionado && (
-                    <div className="mt-2 bg-purple-50 rounded-xl p-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-gray-500">Precio venta</p>
-                        <p className="font-bold text-[#7C3AED]">{formatCOP(productoSeleccionado.precioVenta)}</p>
+                </div>
+
+                {/* Carrito */}
+                {itemsCarrito.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-bold text-gray-600">Productos seleccionados</p>
+                    {itemsCarrito.map(item => (
+                      <div key={item.productoId} className="flex items-center gap-3 bg-purple-50 rounded-xl p-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-gray-900 text-sm truncate">{item.nombreProducto}</p>
+                          <p className="text-xs text-gray-500">{formatCOP(item.precioVenta)} c/u</p>
+                        </div>
+                        <input type="number" min="1" max={item.maxCantidad} value={item.cantidad}
+                          onChange={e => actualizarCantidadCarrito(item.productoId, e.target.value)}
+                          className="w-16 px-2 py-1.5 rounded-lg border border-purple-200 text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                        <p className="text-sm font-black text-[#7C3AED] w-20 text-right">{formatCOP(item.precioVenta * item.cantidad)}</p>
+                        <button type="button" onClick={() => quitarDelCarrito(item.productoId)}
+                          className="p-1 rounded-lg hover:bg-red-100 text-gray-400 hover:text-red-500">
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Stock disponible</p>
-                        <p className="font-bold text-gray-900">{productoSeleccionado.cantidad} und.</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Ganancia</p>
-                        <p className="font-bold text-emerald-600">{formatCOP(productoSeleccionado.utilidadUnitaria)}</p>
-                      </div>
+                    ))}
+                    <div className="flex justify-between items-center bg-emerald-50 rounded-xl p-3">
+                      <span className="font-bold text-gray-700">Total</span>
+                      <span className="font-black text-emerald-600 text-xl">{formatCOP(totalCarrito)}</span>
                     </div>
-                  )}
-                </div>
-
-                {/* Cantidad */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Cantidad</label>
-                  <input type="number" min="1"
-                    max={productoSeleccionado?.cantidad || 999}
-                    value={nuevaForm.cantidad}
-                    onChange={e => setNuevaForm(f => ({ ...f, cantidad: parseInt(e.target.value) || 1 }))}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
-                </div>
-
-                {/* Cliente / Nota */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Cliente / Nota</label>
-                  <input type="text" value={nuevaForm.nota}
-                    onChange={e => setNuevaForm(f => ({ ...f, nota: e.target.value }))}
-                    placeholder="Ej: Ana García, cliente habitual..."
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
-                </div>
-
-                {/* Total preview */}
-                {productoSeleccionado && nuevaForm.cantidad > 0 && (
-                  <div className="bg-emerald-50 rounded-xl p-3 text-sm flex justify-between">
-                    <span className="text-gray-500">Total venta:</span>
-                    <span className="font-black text-emerald-600">{formatCOP(productoSeleccionado.precioVenta * nuevaForm.cantidad)}</span>
                   </div>
                 )}
 
-                <button onClick={handleCrear} disabled={creando || !nuevaForm.nombreProducto}
-                  className="w-full bg-[#7C3AED] text-white font-black text-lg py-4 rounded-xl hover:bg-[#5B21B6] transition-colors disabled:opacity-60 mt-2">
-                  {creando ? 'Registrando...' : 'Registrar venta'}
+                {/* Nota */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Nota (opcional)</label>
+                  <input type="text" value={notaNueva} onChange={e => setNotaNueva(e.target.value)}
+                    placeholder="Ej: pago en efectivo..."
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                </div>
+
+                <button onClick={handleCrear} disabled={creando || itemsCarrito.length === 0}
+                  className="w-full bg-[#7C3AED] text-white font-black text-lg py-4 rounded-xl hover:bg-[#5B21B6] transition-colors disabled:opacity-60">
+                  {creando ? 'Registrando...' : `Registrar venta${totalCarrito > 0 ? ' · ' + formatCOP(totalCarrito) : ''}`}
                 </button>
               </div>
             </div>
@@ -330,43 +344,26 @@ export default function Ventas() {
         </div>
       )}
 
-
+      {/* Modal editar */}
       {editando && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40">
           <div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-2xl shadow-xl">
             <div className="p-5">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-xl font-black text-gray-900">Editar venta</h2>
-                <button onClick={() => setEditando(null)} className="p-2 rounded-xl hover:bg-gray-100">
-                  <X className="w-5 h-5" />
-                </button>
+                <button onClick={() => setEditando(null)} className="p-2 rounded-xl hover:bg-gray-100"><X className="w-5 h-5" /></button>
               </div>
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Precio venta ($)</label>
-                    <input type="number" min="0" value={form.precioVenta}
-                      onChange={e => setForm(f => ({ ...f, precioVenta: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Precio compra ($)</label>
-                    <input type="number" min="0" value={form.precioCompra}
-                      onChange={e => setForm(f => ({ ...f, precioCompra: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
-                  </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Cliente</label>
+                  <input type="text" value={formEdit.cliente} onChange={e => setFormEdit(f => ({ ...f, cliente: e.target.value }))}
+                    placeholder="Nombre del cliente"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
                 </div>
-                {form.precioVenta > 0 && (
-                  <div className="bg-purple-50 rounded-xl p-3 text-sm">
-                    <span className="text-gray-500">Ganancia: </span>
-                    <span className="font-bold text-emerald-600">{formatCOP((form.precioVenta - form.precioCompra) * 1)}</span>
-                  </div>
-                )}
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5">Nota</label>
-                  <input type="text" value={form.nota}
-                    onChange={e => setForm(f => ({ ...f, nota: e.target.value }))}
-                    placeholder="Ej: cliente habitual, descuento..."
+                  <input type="text" value={formEdit.nota} onChange={e => setFormEdit(f => ({ ...f, nota: e.target.value }))}
+                    placeholder="Ej: cliente habitual..."
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
                 </div>
                 <button onClick={handleGuardar} disabled={guardando}
@@ -378,6 +375,7 @@ export default function Ventas() {
           </div>
         </div>
       )}
+
       {/* Modal confirmar eliminar */}
       {confirmando && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40">
@@ -385,23 +383,17 @@ export default function Ventas() {
             <div className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-black text-gray-900">¿Eliminar venta?</h2>
-                <button onClick={() => setConfirmando(null)} className="p-2 rounded-xl hover:bg-gray-100">
-                  <X className="w-5 h-5" />
-                </button>
+                <button onClick={() => setConfirmando(null)} className="p-2 rounded-xl hover:bg-gray-100"><X className="w-5 h-5" /></button>
               </div>
               <div className="bg-red-50 rounded-xl p-4 mb-5">
-                <p className="font-bold text-gray-900 text-sm">{confirmando.nombreProducto}</p>
+                <p className="font-bold text-gray-900 text-sm">{confirmando.items?.map(i => i.nombreProducto).join(', ')}</p>
                 <p className="text-xs text-gray-500 mt-1">Esta acción no devuelve el stock automáticamente.</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={() => setConfirmando(null)}
-                  className="w-full py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors">
-                  Cancelar
-                </button>
+                  className="w-full py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50">Cancelar</button>
                 <button onClick={handleEliminar}
-                  className="w-full py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors">
-                  Eliminar
-                </button>
+                  className="w-full py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600">Eliminar</button>
               </div>
             </div>
           </div>
