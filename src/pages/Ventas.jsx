@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, X, ShoppingCart, Edit2, Trash2, TrendingUp, Calendar, Plus, User } from 'lucide-react'
+import { Search, X, ShoppingCart, Edit2, Trash2, TrendingUp, Calendar, Plus, User, Minus } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../lib/api'
 import { formatCOP, fechaRelativa } from '../lib/utils'
@@ -38,7 +38,6 @@ export default function Ventas() {
 
   useEffect(() => { cargar() }, [desde, hasta])
 
-  // Buscar productos
   useEffect(() => {
     if (busquedaProducto.trim().length < 1) { setProductosResultado([]); return }
     const t = setTimeout(() => {
@@ -83,11 +82,12 @@ export default function Ventas() {
     })
   }
 
-  const actualizarCantidadCarrito = (productoId, cantidad) => {
-    const val = parseInt(cantidad) || 1
-    setItemsCarrito(prev => prev.map(i =>
-      i.productoId === productoId ? { ...i, cantidad: Math.min(Math.max(1, val), i.maxCantidad) } : i
-    ))
+  const actualizarCantidadCarrito = (productoId, delta) => {
+    setItemsCarrito(prev => prev.map(i => {
+      if (i.productoId !== productoId) return i
+      const nueva = Math.min(Math.max(1, i.cantidad + delta), i.maxCantidad)
+      return { ...i, cantidad: nueva }
+    }))
   }
 
   const quitarDelCarrito = (productoId) => {
@@ -195,7 +195,7 @@ export default function Ventas() {
         {busqueda && <button onClick={() => setBusqueda('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-gray-400" /></button>}
       </div>
 
-      {/* Lista */}
+      {/* Lista ventas */}
       {loading ? (
         <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-white rounded-2xl border border-purple-100 animate-pulse" />)}</div>
       ) : ventasFiltradas.length === 0 ? (
@@ -209,29 +209,35 @@ export default function Ventas() {
             <div key={v._id} className="bg-white rounded-2xl border border-purple-100 p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  {/* Items */}
-                  <div className="space-y-0.5">
+                  {/* Items — más grandes */}
+                  <div className="space-y-1">
                     {v.items?.map((item, i) => (
                       <div key={i} className="flex items-center gap-2">
-                        <span className="font-bold text-gray-900 text-sm">{item.nombreProducto}</span>
-                        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">x{item.cantidadVendida}</span>
+                        <span className="font-bold text-gray-900 text-base">{item.nombreProducto}</span>
+                        <span className="text-sm font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">x{item.cantidadVendida}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    {v.cliente && <span className="text-xs text-gray-500 flex items-center gap-0.5"><User className="w-3 h-3" />{v.cliente}</span>}
-                    <span className="text-xs text-gray-400">{fechaRelativa(v.fecha)}</span>
-                    {v.nota && <span className="text-xs text-gray-400">· {v.nota}</span>}
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    {v.cliente && <span className="text-sm font-semibold text-gray-600 flex items-center gap-1 bg-gray-100 px-2.5 py-1 rounded-lg"><User className="w-3.5 h-3.5" />{v.cliente}</span>}
+                    <span className="text-sm text-gray-500">{fechaRelativa(v.fecha)}</span>
+                    {v.nota && <span className="text-sm text-gray-500">· {v.nota}</span>}
                   </div>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
-                  <button onClick={() => handleEditar(v)} className="p-2 rounded-lg hover:bg-purple-50 text-gray-400 hover:text-[#7C3AED] transition-colors"><Edit2 className="w-4 h-4" /></button>
-                  <button onClick={() => setConfirmando(v)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleEditar(v)} className="p-2.5 rounded-xl hover:bg-purple-50 text-gray-400 hover:text-[#7C3AED] transition-colors"><Edit2 className="w-5 h-5" /></button>
+                  <button onClick={() => setConfirmando(v)} className="p-2.5 rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-5 h-5" /></button>
                 </div>
               </div>
-              <div className="flex gap-4 mt-3">
-                <div><p className="text-xs text-gray-400">Total venta</p><p className="font-bold text-gray-900 text-sm">{formatCOP(v.totalVenta)}</p></div>
-                <div><p className="text-xs text-gray-400">Ganancia</p><p className="font-bold text-emerald-600 text-sm">{formatCOP(v.utilidadTotal)}</p></div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500 font-semibold mb-0.5">Total venta</p>
+                  <p className="font-black text-gray-900 text-base">{formatCOP(v.totalVenta)}</p>
+                </div>
+                <div className="bg-emerald-50 rounded-xl p-3">
+                  <p className="text-xs text-emerald-600 font-semibold mb-0.5">Ganancia</p>
+                  <p className="font-black text-emerald-700 text-base">{formatCOP(v.utilidadTotal)}</p>
+                </div>
               </div>
             </div>
           ))}
@@ -257,7 +263,7 @@ export default function Ventas() {
 
                 {/* Cliente opcional */}
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Cliente (opcional)</label>
+                  <label className="block text-base font-bold text-gray-700 mb-1.5">Cliente (opcional)</label>
                   <input type="text" value={clienteNueva} onChange={e => setClienteNueva(e.target.value)}
                     placeholder="Ej: Ana García"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
@@ -265,14 +271,14 @@ export default function Ventas() {
 
                 {/* Buscador productos */}
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Agregar producto</label>
+                  <label className="block text-base font-bold text-gray-700 mb-1.5">Agregar producto</label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input type="text" placeholder="Buscar en inventario..."
                       value={busquedaProducto}
                       onChange={e => { setBusquedaProducto(e.target.value); setMostrarSugerencias(true) }}
                       onFocus={() => setMostrarSugerencias(true)}
-                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
                     {busquedaProducto && (
                       <button type="button" onClick={() => { setBusquedaProducto(''); setProductosResultado([]) }}
                         className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-4 h-4 text-gray-400" /></button>
@@ -281,15 +287,18 @@ export default function Ventas() {
                       <div className="absolute z-10 w-full mt-1 bg-white rounded-xl border border-purple-100 shadow-lg overflow-hidden">
                         {productosResultado.map(p => (
                           <button key={p._id} type="button" onMouseDown={() => agregarAlCarrito(p)}
-                            className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors border-b border-gray-50 last:border-0">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-bold text-gray-900 text-sm">{p.nombre}</p>
-                                <p className="text-xs text-gray-400">{p.talla && `T.${p.talla} · `}{p.color}</p>
+                            className="w-full px-4 py-4 text-left hover:bg-purple-50 transition-colors border-b border-gray-100 last:border-0">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="font-bold text-gray-900 text-base leading-tight">{p.nombre}</p>
+                                <div className="flex gap-2 mt-1 flex-wrap">
+                                  {p.talla && <span className="text-sm font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">T.{p.talla.toUpperCase()}</span>}
+                                  {p.color && <span className="text-sm text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md capitalize">{p.color}</span>}
+                                  <span className="text-sm text-gray-500">{p.cantidad} und. disponibles</span>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <p className="text-sm font-bold text-[#7C3AED]">{formatCOP(p.precioVenta)}</p>
-                                <p className="text-xs text-gray-400">{p.cantidad} und.</p>
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-base font-black text-[#7C3AED]">{formatCOP(p.precioVenta)}</p>
                               </div>
                             </div>
                           </button>
@@ -302,33 +311,56 @@ export default function Ventas() {
                 {/* Carrito */}
                 {itemsCarrito.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-sm font-bold text-gray-600">Productos seleccionados</p>
+                    <p className="text-base font-bold text-gray-600">Productos seleccionados</p>
                     {itemsCarrito.map(item => (
-                      <div key={item.productoId} className="flex items-center gap-3 bg-purple-50 rounded-xl p-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-gray-900 text-sm truncate">{item.nombreProducto}</p>
-                          <p className="text-xs text-gray-500">{formatCOP(item.precioVenta)} c/u</p>
+                      <div key={item.productoId} className="bg-purple-50 rounded-xl p-3">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-gray-900 text-base">{item.nombreProducto}</p>
+                            {(item.talla || item.color) && (
+                              <div className="flex gap-1.5 mt-1 flex-wrap">
+                                {item.talla && <span className="text-xs font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded">T.{item.talla.toUpperCase()}</span>}
+                                {item.color && <span className="text-xs text-gray-600 bg-white px-2 py-0.5 rounded capitalize">{item.color}</span>}
+                              </div>
+                            )}
+                          </div>
+                          <button type="button" onClick={() => quitarDelCarrito(item.productoId)}
+                            className="p-1.5 rounded-lg hover:bg-red-100 text-gray-400 hover:text-red-500 flex-shrink-0">
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
-                        <input type="number" min="1" max={item.maxCantidad} value={item.cantidad}
-                          onChange={e => actualizarCantidadCarrito(item.productoId, e.target.value)}
-                          className="w-16 px-2 py-1.5 rounded-lg border border-purple-200 text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-purple-400" />
-                        <p className="text-sm font-black text-[#7C3AED] w-20 text-right">{formatCOP(item.precioVenta * item.cantidad)}</p>
-                        <button type="button" onClick={() => quitarDelCarrito(item.productoId)}
-                          className="p-1 rounded-lg hover:bg-red-100 text-gray-400 hover:text-red-500">
-                          <X className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-between">
+                          {/* Botones +/− para cantidad */}
+                          <div className="flex items-center gap-2">
+                            <button type="button"
+                              onClick={() => actualizarCantidadCarrito(item.productoId, -1)}
+                              disabled={item.cantidad <= 1}
+                              className="w-10 h-10 rounded-xl bg-white border border-purple-200 flex items-center justify-center text-gray-700 disabled:opacity-40 hover:bg-purple-100 transition-colors">
+                              <Minus className="w-4 h-4" />
+                            </button>
+                            <span className="w-10 text-center text-xl font-black text-gray-900">{item.cantidad}</span>
+                            <button type="button"
+                              onClick={() => actualizarCantidadCarrito(item.productoId, 1)}
+                              disabled={item.cantidad >= item.maxCantidad}
+                              className="w-10 h-10 rounded-xl bg-white border border-purple-200 flex items-center justify-center text-gray-700 disabled:opacity-40 hover:bg-purple-100 transition-colors">
+                              <Plus className="w-4 h-4" />
+                            </button>
+                            <span className="text-sm text-gray-400">de {item.maxCantidad}</span>
+                          </div>
+                          <p className="text-base font-black text-[#7C3AED]">{formatCOP(item.precioVenta * item.cantidad)}</p>
+                        </div>
                       </div>
                     ))}
                     <div className="flex justify-between items-center bg-emerald-50 rounded-xl p-3">
-                      <span className="font-bold text-gray-700">Total</span>
-                      <span className="font-black text-emerald-600 text-xl">{formatCOP(totalCarrito)}</span>
+                      <span className="font-bold text-gray-700 text-base">Total</span>
+                      <span className="font-black text-emerald-600 text-2xl">{formatCOP(totalCarrito)}</span>
                     </div>
                   </div>
                 )}
 
                 {/* Nota */}
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Nota (opcional)</label>
+                  <label className="block text-base font-bold text-gray-700 mb-1.5">Nota (opcional)</label>
                   <input type="text" value={notaNueva} onChange={e => setNotaNueva(e.target.value)}
                     placeholder="Ej: pago en efectivo..."
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
@@ -355,13 +387,13 @@ export default function Ventas() {
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Cliente</label>
+                  <label className="block text-base font-bold text-gray-700 mb-1.5">Cliente</label>
                   <input type="text" value={formEdit.cliente} onChange={e => setFormEdit(f => ({ ...f, cliente: e.target.value }))}
                     placeholder="Nombre del cliente"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Nota</label>
+                  <label className="block text-base font-bold text-gray-700 mb-1.5">Nota</label>
                   <input type="text" value={formEdit.nota} onChange={e => setFormEdit(f => ({ ...f, nota: e.target.value }))}
                     placeholder="Ej: cliente habitual..."
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
@@ -386,8 +418,8 @@ export default function Ventas() {
                 <button onClick={() => setConfirmando(null)} className="p-2 rounded-xl hover:bg-gray-100"><X className="w-5 h-5" /></button>
               </div>
               <div className="bg-red-50 rounded-xl p-4 mb-5">
-                <p className="font-bold text-gray-900 text-sm">{confirmando.items?.map(i => i.nombreProducto).join(', ')}</p>
-                <p className="text-xs text-gray-500 mt-1">Esta acción no devuelve el stock automáticamente.</p>
+                <p className="font-bold text-gray-900 text-base">{confirmando.items?.map(i => i.nombreProducto).join(', ')}</p>
+                <p className="text-sm text-gray-500 mt-1">Esta acción no devuelve el stock automáticamente.</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={() => setConfirmando(null)}
