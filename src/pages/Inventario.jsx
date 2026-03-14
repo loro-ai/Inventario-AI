@@ -12,6 +12,11 @@ const CATEGORIAS = [
   { value: 'falda', label: 'Falda' },
   { value: 'conjunto', label: 'Conjunto' },
   { value: 'accesorio', label: 'Accesorio' },
+  { value: 'ropa_interior', label: 'Ropa interior' },
+  { value: 'maquillaje', label: 'Maquillaje' },
+  { value: 'bermuda', label: 'Bermuda' },
+  { value: 'camiseta', label: 'Camiseta' },
+  { value: 'comida', label: 'Comida' },
   { value: 'otro', label: 'Otro' },
 ]
 
