@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Search, X, ShoppingCart, Edit2, Trash2, TrendingUp, Calendar } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Search, X, ShoppingCart, Edit2, Trash2, TrendingUp, Calendar, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../lib/api'
 import { formatCOP, fechaRelativa } from '../lib/utils'
@@ -17,6 +17,16 @@ export default function Ventas() {
   const [form, setForm] = useState({ precioVenta: 0, precioCompra: 0, nota: '' })
   const [guardando, setGuardando] = useState(false)
   const [confirmando, setConfirmando] = useState(null)
+
+  // Nueva venta
+  const [mostrarNueva, setMostrarNueva] = useState(false)
+  const [nuevaForm, setNuevaForm] = useState({ nombreProducto: '', cantidad: 1, nota: '' })
+  const [busquedaProducto, setBusquedaProducto] = useState('')
+  const [productos, setProductos] = useState([])
+  const [productoSeleccionado, setProductoSeleccionado] = useState(null)
+  const [mostrarSugerencias, setMostrarSugerencias] = useState(false)
+  const [creando, setCreando] = useState(false)
+  const busquedaRef = useRef(null)
 
   const cargar = () => {
     setLoading(true)
@@ -36,7 +46,49 @@ export default function Ventas() {
   const totalUtilidad = ventasFiltradas.reduce((acc, v) => acc + (v.utilidadTotal || 0), 0)
   const totalVentas = ventasFiltradas.reduce((acc, v) => acc + (v.precioVenta * v.cantidadVendida || 0), 0)
 
-  const handleEditar = (v) => {
+  // Buscar productos al escribir
+  useEffect(() => {
+    if (busquedaProducto.trim().length < 1) { setProductos([]); return }
+    const t = setTimeout(() => {
+      api.get('/api/productos', { params: { busqueda: busquedaProducto } })
+        .then(r => setProductos(r.data.slice(0, 6)))
+        .catch(() => {})
+    }, 300)
+    return () => clearTimeout(t)
+  }, [busquedaProducto])
+
+  const seleccionarProducto = (p) => {
+    setProductoSeleccionado(p)
+    setBusquedaProducto(p.nombre)
+    setNuevaForm(f => ({ ...f, nombreProducto: p.nombre }))
+    setMostrarSugerencias(false)
+  }
+
+  const abrirNueva = () => {
+    setNuevaForm({ nombreProducto: '', cantidad: 1, nota: '' })
+    setBusquedaProducto('')
+    setProductoSeleccionado(null)
+    setMostrarNueva(true)
+  }
+
+  const handleCrear = async () => {
+    if (!nuevaForm.nombreProducto.trim()) { toast.error('Selecciona un producto'); return }
+    setCreando(true)
+    try {
+      await api.post('/api/ventas', {
+        nombreProducto: nuevaForm.nombreProducto,
+        cantidad: nuevaForm.cantidad,
+        nota: nuevaForm.nota
+      })
+      toast.success('¡Venta registrada!')
+      setMostrarNueva(false)
+      cargar()
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error registrando venta')
+    } finally { setCreando(false) }
+  }
+
+
     setEditando(v._id)
     setForm({ precioVenta: v.precioVenta, precioCompra: v.precioCompra, nota: v.nota || '' })
   }
@@ -157,7 +209,128 @@ export default function Ventas() {
         </div>
       )}
 
-      {/* Modal editar */}
+      {/* Botón nueva venta */}
+      <button
+        onClick={abrirNueva}
+        className="fixed bottom-24 right-4 md:bottom-8 w-14 h-14 bg-[#7C3AED] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#5B21B6] transition-colors z-30"
+      ><Plus className="w-7 h-7" /></button>
+
+      {/* Modal nueva venta */}
+      {mostrarNueva && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40">
+          <div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-xl font-black text-gray-900">Nueva venta</h2>
+                <button onClick={() => setMostrarNueva(false)} className="p-2 rounded-xl hover:bg-gray-100">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+
+                {/* Buscador producto */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Producto *</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      ref={busquedaRef}
+                      type="text"
+                      placeholder="Buscar en inventario..."
+                      value={busquedaProducto}
+                      onChange={e => {
+                        setBusquedaProducto(e.target.value)
+                        setProductoSeleccionado(null)
+                        setNuevaForm(f => ({ ...f, nombreProducto: e.target.value }))
+                        setMostrarSugerencias(true)
+                      }}
+                      onFocus={() => setMostrarSugerencias(true)}
+                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    />
+                    {busquedaProducto && (
+                      <button onClick={() => { setBusquedaProducto(''); setProductoSeleccionado(null); setNuevaForm(f => ({ ...f, nombreProducto: '' })) }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <X className="w-4 h-4 text-gray-400" />
+                      </button>
+                    )}
+                    {/* Sugerencias */}
+                    {mostrarSugerencias && productos.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white rounded-xl border border-purple-100 shadow-lg overflow-hidden">
+                        {productos.map(p => (
+                          <button key={p._id} onMouseDown={() => seleccionarProducto(p)}
+                            className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors border-b border-gray-50 last:border-0">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-bold text-gray-900 text-sm">{p.nombre}</p>
+                                <p className="text-xs text-gray-400">{p.talla && `Talla ${p.talla} · `}{p.color}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-[#7C3AED]">{formatCOP(p.precioVenta)}</p>
+                                <p className="text-xs text-gray-400">{p.cantidad} und.</p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* Preview producto seleccionado */}
+                  {productoSeleccionado && (
+                    <div className="mt-2 bg-purple-50 rounded-xl p-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-gray-500">Precio venta</p>
+                        <p className="font-bold text-[#7C3AED]">{formatCOP(productoSeleccionado.precioVenta)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Stock disponible</p>
+                        <p className="font-bold text-gray-900">{productoSeleccionado.cantidad} und.</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Ganancia</p>
+                        <p className="font-bold text-emerald-600">{formatCOP(productoSeleccionado.utilidadUnitaria)}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Cantidad */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Cantidad</label>
+                  <input type="number" min="1"
+                    max={productoSeleccionado?.cantidad || 999}
+                    value={nuevaForm.cantidad}
+                    onChange={e => setNuevaForm(f => ({ ...f, cantidad: parseInt(e.target.value) || 1 }))}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                </div>
+
+                {/* Cliente / Nota */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Cliente / Nota</label>
+                  <input type="text" value={nuevaForm.nota}
+                    onChange={e => setNuevaForm(f => ({ ...f, nota: e.target.value }))}
+                    placeholder="Ej: Ana García, cliente habitual..."
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                </div>
+
+                {/* Total preview */}
+                {productoSeleccionado && nuevaForm.cantidad > 0 && (
+                  <div className="bg-emerald-50 rounded-xl p-3 text-sm flex justify-between">
+                    <span className="text-gray-500">Total venta:</span>
+                    <span className="font-black text-emerald-600">{formatCOP(productoSeleccionado.precioVenta * nuevaForm.cantidad)}</span>
+                  </div>
+                )}
+
+                <button onClick={handleCrear} disabled={creando || !nuevaForm.nombreProducto}
+                  className="w-full bg-[#7C3AED] text-white font-black text-lg py-4 rounded-xl hover:bg-[#5B21B6] transition-colors disabled:opacity-60 mt-2">
+                  {creando ? 'Registrando...' : 'Registrar venta'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {editando && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40">
           <div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-2xl shadow-xl">
