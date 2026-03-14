@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, Plus, X, DollarSign, ChevronRight, Search, User, ShoppingCart } from 'lucide-react'
+import { Users, Plus, X, DollarSign, ChevronRight, Search, Edit2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../lib/api'
 import { formatCOP, fechaRelativa, getIniciales, colorEstadoCredito } from '../lib/utils'
@@ -13,6 +13,9 @@ export default function Deudas() {
   const [montoAbono, setMontoAbono] = useState('')
   const [notaAbono, setNotaAbono] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [confirmando, setConfirmando] = useState(null)
+  const [editandoDeuda, setEditandoDeuda] = useState(null)
+  const [formEdit, setFormEdit] = useState({ notas: '' })
 
   // Form nueva deuda
   const [clienteNombre, setClienteNombre] = useState('')
@@ -67,6 +70,30 @@ export default function Deudas() {
     setClienteNombre(''); setAbonoInicial(''); setItemsCarrito([])
     setBusquedaProducto(''); setMostrarSugerencias(false)
     setMostrarFormNueva(true)
+  }
+
+  const handleGuardarEdicion = async () => {
+    setGuardando(true)
+    try {
+      await api.put(`/api/credito/${editandoDeuda._id}`, formEdit)
+      toast.success('Deuda actualizada')
+      setEditandoDeuda(null)
+      cargar()
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error guardando')
+    } finally { setGuardando(false) }
+  }
+
+  const handleEliminar = async () => {
+    if (!confirmando) return
+    try {
+      await api.delete(`/api/credito/${confirmando._id}`)
+      toast.success('Deuda eliminada')
+      setConfirmando(null)
+      cargar()
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error eliminando')
+    }
   }
 
   const cargar = () => {
@@ -200,7 +227,17 @@ export default function Deudas() {
                     </div>
                     <p className="text-xs text-gray-400 mt-1.5">{fechaRelativa(d.createdAt)}</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0 mt-1" />
+                  <div className="flex items-start gap-2 flex-shrink-0">
+                    <button onClick={e => { e.stopPropagation(); setEditandoDeuda(d); setFormEdit({ notas: d.notas || '' }) }}
+                      className="p-2 rounded-lg hover:bg-purple-50 text-gray-400 hover:text-[#7C3AED] transition-colors">
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button onClick={e => { e.stopPropagation(); setConfirmando(d) }}
+                      className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <ChevronRight className="w-4 h-4 text-gray-300 mt-2" />
+                  </div>
                 </div>
               </button>
             )
@@ -404,6 +441,60 @@ export default function Deudas() {
                   {guardando ? 'Guardando...' : 'Registrar deuda'}
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal editar deuda */}
+      {editandoDeuda && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40">
+          <div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-2xl shadow-xl">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-xl font-black text-gray-900">Editar deuda</h2>
+                <button onClick={() => setEditandoDeuda(null)} className="p-2 rounded-xl hover:bg-gray-100"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="bg-purple-50 rounded-xl p-3 mb-4">
+                <p className="font-bold text-gray-900">{editandoDeuda.cliente?.nombre}</p>
+                <p className="text-sm text-gray-500">{editandoDeuda.items?.map(i => `${i.cantidad > 1 ? i.cantidad + 'x ' : ''}${i.nombreProducto}`).join(', ')}</p>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Notas</label>
+                  <input type="text" value={formEdit.notas}
+                    onChange={e => setFormEdit(f => ({ ...f, notas: e.target.value }))}
+                    placeholder="Ej: paga los viernes..."
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                </div>
+                <button onClick={handleGuardarEdicion} disabled={guardando}
+                  className="w-full bg-[#7C3AED] text-white font-black text-lg py-4 rounded-xl hover:bg-[#5B21B6] transition-colors disabled:opacity-60">
+                  {guardando ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmar eliminar */}
+      {confirmando && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40">
+          <div className="bg-white w-full md:max-w-sm rounded-t-3xl md:rounded-2xl shadow-xl">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-black text-gray-900">¿Eliminar deuda?</h2>
+                <button onClick={() => setConfirmando(null)} className="p-2 rounded-xl hover:bg-gray-100"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="bg-red-50 rounded-xl p-4 mb-5">
+                <p className="font-bold text-gray-900 text-sm">{confirmando.cliente?.nombre}</p>
+                <p className="text-xs text-gray-500 mt-1">Falta: {formatCOP(confirmando.saldoPendiente)} — Esta acción no devuelve el stock.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => setConfirmando(null)}
+                  className="w-full py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50">Cancelar</button>
+                <button onClick={handleEliminar}
+                  className="w-full py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600">Eliminar</button>
+              </div>
             </div>
           </div>
         </div>
