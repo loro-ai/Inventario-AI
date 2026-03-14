@@ -5,6 +5,7 @@ import AppLayout from './components/AppLayout'
 import Login from './pages/Login'
 import Inicio from './pages/Inicio'
 import Inventario from './pages/Inventario'
+import Ventas from './pages/Ventas'
 import Deudas from './pages/Deudas'
 import Pedidos from './pages/Pedidos'
 import Chat from './pages/Chat'
@@ -27,6 +28,7 @@ function AppRoutes() {
       <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route index element={<Inicio />} />
         <Route path="inventario" element={<Inventario />} />
+        <Route path="ventas" element={<Ventas />} />
         <Route path="deudas" element={<Deudas />} />
         <Route path="pedidos" element={<Pedidos />} />
         <Route path="chat" element={<Chat />} />
