@@ -16,6 +16,7 @@ export default function Ventas() {
   const [editando, setEditando] = useState(null)
   const [form, setForm] = useState({ precioVenta: 0, precioCompra: 0, nota: '' })
   const [guardando, setGuardando] = useState(false)
+  const [confirmando, setConfirmando] = useState(null)
 
   const cargar = () => {
     setLoading(true)
@@ -52,11 +53,12 @@ export default function Ventas() {
     } finally { setGuardando(false) }
   }
 
-  const handleEliminar = async (v) => {
-    if (!confirm(`¿Eliminar la venta de "${v.nombreProducto}"?\nEsto NO devuelve el stock automáticamente.`)) return
+  const handleEliminar = async () => {
+    if (!confirmando) return
     try {
-      await api.delete(`/api/ventas/${v._id}`)
+      await api.delete(`/api/ventas/${confirmando._id}`)
       toast.success('Venta eliminada')
+      setConfirmando(null)
       cargar()
     } catch (err) {
       toast.error(err.response?.data?.error || 'Error eliminando')
@@ -140,7 +142,7 @@ export default function Ventas() {
                   <button onClick={() => handleEditar(v)} className="p-2 rounded-lg hover:bg-purple-50 text-gray-400 hover:text-[#7C3AED] transition-colors">
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button onClick={() => handleEliminar(v)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                  <button onClick={() => setConfirmando(v)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -197,6 +199,35 @@ export default function Ventas() {
                 <button onClick={handleGuardar} disabled={guardando}
                   className="w-full bg-[#7C3AED] text-white font-black text-lg py-4 rounded-xl hover:bg-[#5B21B6] transition-colors disabled:opacity-60">
                   {guardando ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal confirmar eliminar */}
+      {confirmando && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40">
+          <div className="bg-white w-full md:max-w-sm rounded-t-3xl md:rounded-2xl shadow-xl">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-black text-gray-900">¿Eliminar venta?</h2>
+                <button onClick={() => setConfirmando(null)} className="p-2 rounded-xl hover:bg-gray-100">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="bg-red-50 rounded-xl p-4 mb-5">
+                <p className="font-bold text-gray-900 text-sm">{confirmando.nombreProducto}</p>
+                <p className="text-xs text-gray-500 mt-1">Esta acción no devuelve el stock automáticamente.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => setConfirmando(null)}
+                  className="w-full py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-colors">
+                  Cancelar
+                </button>
+                <button onClick={handleEliminar}
+                  className="w-full py-3 rounded-xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors">
+                  Eliminar
                 </button>
               </div>
             </div>
