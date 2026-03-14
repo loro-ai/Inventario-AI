@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, X, Package, Edit2, Trash2, ChevronDown } from 'lucide-react'
+import { Plus, Search, X, Package, Edit2, Trash2, ChevronDown, Calculator } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../lib/api'
 import { formatCOP, colorStock } from '../lib/utils'
@@ -7,17 +7,24 @@ import { formatCOP, colorStock } from '../lib/utils'
 const CATEGORIAS = [
   { value: '', label: 'Todas' },
   { value: 'blusa', label: 'Blusa' },
-  { value: 'ropa_interior', label: 'Ropa interior' },
   { value: 'vestido', label: 'Vestido' },
   { value: 'pantalon', label: 'Pantalón' },
   { value: 'falda', label: 'Falda' },
   { value: 'conjunto', label: 'Conjunto' },
   { value: 'accesorio', label: 'Accesorio' },
+  { value: 'ropa_interior', label: 'Ropa interior' },
   { value: 'maquillaje', label: 'Maquillaje' },
   { value: 'bermuda', label: 'Bermuda' },
   { value: 'camiseta', label: 'Camiseta' },
   { value: 'comida', label: 'Comida' },
   { value: 'otro', label: 'Otro' },
+]
+
+const MARGENES = [
+  { label: '1.5x', value: 1.5 },
+  { label: '2x', value: 2 },
+  { label: '2.5x', value: 2.5 },
+  { label: '3x', value: 3 },
 ]
 
 const FORM_VACIO = { nombre: '', categoria: 'otro', talla: '', color: '', cantidad: 0, precioCompra: 0, precioVenta: 0 }
@@ -31,6 +38,25 @@ export default function Inventario() {
   const [editando, setEditando] = useState(null)
   const [form, setForm] = useState(FORM_VACIO)
   const [guardando, setGuardando] = useState(false)
+
+  // Calculadora de inversión
+  const [totalInvertido, setTotalInvertido] = useState('')
+  const [margenSugerido, setMargenSugerido] = useState(null)
+
+  const precioCompraUnitario = totalInvertido && form.cantidad > 0
+    ? Math.round(parseFloat(totalInvertido) / form.cantidad)
+    : form.precioCompra
+
+  // Cuando cambia totalInvertido o cantidad, recalcula precioCompra
+  useEffect(() => {
+    if (totalInvertido && form.cantidad > 0) {
+      const unitario = Math.round(parseFloat(totalInvertido) / form.cantidad)
+      setForm(f => ({ ...f, precioCompra: unitario }))
+      if (margenSugerido) {
+        setForm(f => ({ ...f, precioCompra: unitario, precioVenta: Math.round(unitario * margenSugerido) }))
+      }
+    }
+  }, [totalInvertido, form.cantidad, margenSugerido])
 
   const cargar = () => {
     setLoading(true)
@@ -57,7 +83,9 @@ export default function Inventario() {
         await api.post('/api/productos', form)
         toast.success('¡Producto agregado!')
       }
-      setMostrarForm(false); setEditando(null); setForm(FORM_VACIO); cargar()
+      setMostrarForm(false); setEditando(null); setForm(FORM_VACIO)
+      setTotalInvertido(''); setMargenSugerido(null)
+      cargar()
     } catch (err) {
       toast.error(err.response?.data?.error || 'Error guardando')
     } finally { setGuardando(false) }
@@ -65,6 +93,8 @@ export default function Inventario() {
 
   const handleEditar = (p) => {
     setEditando(p._id)
+    setTotalInvertido('')
+    setMargenSugerido(null)
     setForm({ nombre: p.nombre, categoria: p.categoria, talla: p.talla || '', color: p.color || '', cantidad: p.cantidad, precioCompra: p.precioCompra, precioVenta: p.precioVenta })
     setMostrarForm(true)
   }
@@ -76,6 +106,11 @@ export default function Inventario() {
       toast.success('Producto eliminado')
       cargar()
     } catch { toast.error('Error eliminando') }
+  }
+
+  const cerrarForm = () => {
+    setMostrarForm(false); setEditando(null); setForm(FORM_VACIO)
+    setTotalInvertido(''); setMargenSugerido(null)
   }
 
   return (
@@ -141,11 +176,11 @@ export default function Inventario() {
                     style={{ width: `${Math.min(100, (p.cantidad / 20) * 100)}%` }} />
                 </div>
               </div>
-              <div className="flex gap-4 mt-3">
-                <div><p className="text-xs text-gray-400">Compra</p><p className="font-bold text-gray-900 text-sm">{formatCOP(p.precioCompra)}</p></div>
+              <div className="flex gap-4 mt-3 flex-wrap">
+                <div><p className="text-xs text-gray-400">Compra unit.</p><p className="font-bold text-gray-900 text-sm">{formatCOP(p.precioCompra)}</p></div>
+                <div><p className="text-xs text-gray-400">Inversión total</p><p className="font-bold text-blue-600 text-sm">{formatCOP(p.precioCompra * p.cantidad)}</p></div>
                 <div><p className="text-xs text-gray-400">Venta</p><p className="font-bold text-gray-900 text-sm">{formatCOP(p.precioVenta)}</p></div>
                 <div><p className="text-xs text-gray-400">Utilidad</p><p className="font-bold text-emerald-600 text-sm">{formatCOP(p.utilidadUnitaria)}</p></div>
-                <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-emerald-600 text-sm">{formatCOP(p.utilidadTotal)}</p></div>
               </div>
             </div>
           ))}
@@ -153,7 +188,7 @@ export default function Inventario() {
       )}
 
       <button
-        onClick={() => { setEditando(null); setForm(FORM_VACIO); setMostrarForm(true) }}
+        onClick={() => { setEditando(null); setForm(FORM_VACIO); setTotalInvertido(''); setMargenSugerido(null); setMostrarForm(true) }}
         className="fixed bottom-24 right-4 md:bottom-8 w-14 h-14 bg-[#7C3AED] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#5B21B6] transition-colors z-30"
       ><Plus className="w-7 h-7" /></button>
 
@@ -163,15 +198,19 @@ export default function Inventario() {
             <div className="p-5">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-xl font-black text-gray-900">{editando ? 'Editar producto' : 'Nuevo producto'}</h2>
-                <button onClick={() => { setMostrarForm(false); setEditando(null); setForm(FORM_VACIO) }} className="p-2 rounded-xl hover:bg-gray-100"><X className="w-5 h-5" /></button>
+                <button onClick={cerrarForm} className="p-2 rounded-xl hover:bg-gray-100"><X className="w-5 h-5" /></button>
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
+
+                {/* Nombre */}
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5">Nombre *</label>
                   <input type="text" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-                    placeholder="Ej: Blusa rosada manga larga"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" required />
+                    placeholder="Ej: Brasiel triangulo" required
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
                 </div>
+
+                {/* Categoría y talla */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Categoría</label>
@@ -189,6 +228,8 @@ export default function Inventario() {
                       placeholder="S, M, L..." className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
                   </div>
                 </div>
+
+                {/* Color y cantidad */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1.5">Color</label>
@@ -201,24 +242,94 @@ export default function Inventario() {
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+
+                {/* Calculadora de inversión */}
+                <div className="bg-blue-50 rounded-2xl p-4 space-y-3">
+                  <p className="text-sm font-bold text-blue-700 flex items-center gap-1.5">
+                    <Calculator className="w-4 h-4" /> Calculadora de inversión
+                  </p>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Precio compra ($)</label>
-                    <input type="number" min="0" value={form.precioCompra} onChange={e => setForm(f => ({ ...f, precioCompra: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                    <label className="block text-xs text-gray-500 font-semibold mb-1">Total invertido en el lote ($)</label>
+                    <input
+                      type="number" min="0"
+                      value={totalInvertido}
+                      onChange={e => setTotalInvertido(e.target.value)}
+                      placeholder="Ej: 36000"
+                      className="w-full px-4 py-3 rounded-xl border border-blue-200 bg-white text-base focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
                   </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">Precio venta ($)</label>
-                    <input type="number" min="0" value={form.precioVenta} onChange={e => setForm(f => ({ ...f, precioVenta: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
-                  </div>
+                  {totalInvertido && form.cantidad > 0 && (
+                    <div className="bg-white rounded-xl p-3 flex justify-between items-center">
+                      <div>
+                        <p className="text-xs text-gray-400">Costo unitario</p>
+                        <p className="font-black text-blue-700 text-lg">{formatCOP(precioCompraUnitario)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-400">Inversión total</p>
+                        <p className="font-bold text-gray-700">{formatCOP(parseFloat(totalInvertido))}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Precio compra unitario */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Precio compra unitario ($)</label>
+                  <input type="number" min="0" value={form.precioCompra}
+                    onChange={e => { setTotalInvertido(''); setForm(f => ({ ...f, precioCompra: parseFloat(e.target.value) || 0 })) }}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                  {totalInvertido && form.cantidad > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">✓ Calculado automáticamente desde la inversión total</p>
+                  )}
+                </div>
+
+                {/* Precio venta */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Precio venta ($)</label>
+                  {/* Sugerencias de margen */}
+                  {form.precioCompra > 0 && (
+                    <div className="flex gap-2 mb-2 flex-wrap">
+                      <span className="text-xs text-gray-400 self-center">Sugerir:</span>
+                      {MARGENES.map(m => (
+                        <button key={m.value} type="button"
+                          onClick={() => { setMargenSugerido(m.value); setForm(f => ({ ...f, precioVenta: Math.round(f.precioCompra * m.value) })) }}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                            margenSugerido === m.value ? 'bg-[#7C3AED] text-white border-[#7C3AED]' : 'bg-white text-gray-500 border-gray-200 hover:border-[#7C3AED] hover:text-[#7C3AED]'
+                          }`}>
+                          {m.label} = {formatCOP(Math.round(form.precioCompra * m.value))}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <input type="number" min="0" value={form.precioVenta}
+                    onChange={e => { setMargenSugerido(null); setForm(f => ({ ...f, precioVenta: parseFloat(e.target.value) || 0 })) }}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                </div>
+
+                {/* Resumen final */}
                 {form.precioVenta > 0 && form.precioCompra > 0 && (
-                  <div className="bg-purple-50 rounded-xl p-3 text-sm">
-                    <span className="text-gray-500">Utilidad por unidad: </span>
-                    <span className="font-bold text-emerald-600">{formatCOP(form.precioVenta - form.precioCompra)}</span>
+                  <div className="bg-purple-50 rounded-xl p-3 space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Utilidad por unidad</span>
+                      <span className="font-bold text-emerald-600">{formatCOP(form.precioVenta - form.precioCompra)}</span>
+                    </div>
+                    {form.cantidad > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Utilidad total ({form.cantidad} und.)</span>
+                        <span className="font-bold text-emerald-600">{formatCOP((form.precioVenta - form.precioCompra) * form.cantidad)}</span>
+                      </div>
+                    )}
+                    {totalInvertido && (
+                      <div className="flex justify-between border-t border-purple-100 pt-1 mt-1">
+                        <span className="text-gray-500">Recuperas inversión con</span>
+                        <span className="font-bold text-[#7C3AED]">
+                          {Math.ceil(parseFloat(totalInvertido) / form.precioVenta)} ventas
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
+
                 <button type="submit" disabled={guardando}
                   className="w-full bg-[#7C3AED] text-white font-black text-lg py-4 rounded-xl hover:bg-[#5B21B6] transition-colors disabled:opacity-60 mt-2">
                   {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Agregar producto'}
