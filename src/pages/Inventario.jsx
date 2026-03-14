@@ -41,6 +41,7 @@ export default function Inventario() {
   const [form, setForm] = useState(FORM_VACIO)
   const [guardando, setGuardando] = useState(false)
   const [mostrarSelectorCantidad, setMostrarSelectorCantidad] = useState(false)
+  const [verAgotados, setVerAgotados] = useState(false)
 
   // Calculadora de inversión
   const [totalInvertido, setTotalInvertido] = useState('')
@@ -118,7 +119,10 @@ export default function Inventario() {
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-black text-gray-900">Inventario</h1>
+        <div>
+          <h1 className="text-2xl font-black text-gray-900">Inventario</h1>
+          {verAgotados && <p className="text-sm font-semibold text-red-500">Mostrando productos agotados</p>}
+        </div>
         <span className="text-sm text-gray-400 font-semibold">{productos.length} productos</span>
       </div>
 
@@ -149,9 +153,13 @@ export default function Inventario() {
           <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-400 font-semibold">No hay productos aquí todavía</p>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {productos.map(p => (
+      ) : (() => {
+        const vigentes = productos.filter(p => p.cantidad > 0)
+        const agotados = productos.filter(p => p.cantidad === 0)
+        const listaActual = verAgotados ? agotados : vigentes
+        return (
+          <div className="space-y-3">
+            {listaActual.map(p => (
             <div key={p._id} className="bg-white rounded-2xl border border-purple-100 p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -201,8 +209,26 @@ export default function Inventario() {
               </div>
             </div>
           ))}
-        </div>
-      )}
+            {listaActual.length === 0 && (
+              <div className="bg-white rounded-2xl border border-purple-100 p-8 text-center">
+                <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-400 font-semibold">
+                  {verAgotados ? 'No hay productos agotados 🎉' : 'No hay productos con stock disponible'}
+                </p>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* Botón ver agotados — encima del botón + */}
+      <button
+        onClick={() => setVerAgotados(v => !v)}
+        className="fixed bottom-40 right-4 md:bottom-24 w-14 h-14 bg-white border-2 border-gray-300 text-gray-500 rounded-full shadow-md flex items-center justify-center hover:border-red-400 hover:text-red-500 transition-colors z-30"
+        title={verAgotados ? 'Ver con stock' : 'Ver agotados'}
+      >
+        <span className="text-xs font-black leading-tight text-center">{verAgotados ? '✓' : '0'}</span>
+      </button>
 
       <button
         onClick={() => { setEditando(null); setForm(FORM_VACIO); setTotalInvertido(''); setMargenSugerido(null); setMostrarForm(true) }}

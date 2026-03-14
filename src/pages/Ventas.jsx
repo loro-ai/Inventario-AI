@@ -42,7 +42,7 @@ export default function Ventas() {
     if (busquedaProducto.trim().length < 1) { setProductosResultado([]); return }
     const t = setTimeout(() => {
       api.get('/api/productos', { params: { busqueda: busquedaProducto } })
-        .then(r => setProductosResultado(r.data.slice(0, 6)))
+        .then(r => setProductosResultado(r.data.filter(p => p.cantidad > 0).slice(0, 6)))
         .catch(() => {})
     }, 300)
     return () => clearTimeout(t)

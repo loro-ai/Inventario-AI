@@ -16,17 +16,17 @@ function Burbuja({ msg }) {
   return (
     <div className={`flex gap-2 ${esIA ? 'justify-start' : 'justify-end'}`}>
       {esIA && (
-        <div className="w-8 h-8 rounded-full bg-[#7C3AED] flex items-center justify-center flex-shrink-0 mt-1">
-          <Sparkles className="w-4 h-4 text-white" />
+        <div className="w-10 h-10 rounded-full bg-[#7C3AED] flex items-center justify-center flex-shrink-0 mt-1">
+          <Sparkles className="w-5 h-5 text-white" />
         </div>
       )}
-      <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+      <div className={`max-w-[80%] rounded-2xl px-4 py-3 leading-relaxed ${
         esIA
           ? 'bg-white border border-purple-100 text-gray-800 rounded-tl-none shadow-sm'
           : 'bg-[#7C3AED] text-white rounded-tr-none'
       }`}>
-        <p className="whitespace-pre-wrap">{msg.contenido}</p>
-        <p className={`text-xs mt-1.5 ${esIA ? 'text-gray-400' : 'text-white/60'}`}>
+        <p className="whitespace-pre-wrap text-base">{msg.contenido}</p>
+        <p className={`text-sm mt-1.5 ${esIA ? 'text-gray-400' : 'text-white/60'}`}>
           {fechaRelativa(msg.createdAt || new Date())}
         </p>
       </div>
@@ -37,13 +37,13 @@ function Burbuja({ msg }) {
 function BurbujaTyping() {
   return (
     <div className="flex gap-2 justify-start">
-      <div className="w-8 h-8 rounded-full bg-[#7C3AED] flex items-center justify-center flex-shrink-0">
-        <Sparkles className="w-4 h-4 text-white" />
+      <div className="w-10 h-10 rounded-full bg-[#7C3AED] flex items-center justify-center flex-shrink-0">
+        <Sparkles className="w-5 h-5 text-white" />
       </div>
       <div className="bg-white border border-purple-100 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
-        <div className="flex gap-1 items-center h-4">
+        <div className="flex gap-1.5 items-center h-5">
           {[0, 1, 2].map(i => (
-            <span key={i} className="w-2 h-2 rounded-full bg-[#7C3AED] opacity-60 animate-bounce"
+            <span key={i} className="w-2.5 h-2.5 rounded-full bg-[#7C3AED] opacity-60 animate-bounce"
               style={{ animationDelay: `${i * 0.15}s` }} />
           ))}
         </div>
@@ -118,18 +118,18 @@ export default function Chat() {
       {/* Header chat */}
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-purple-100 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#7C3AED] flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
+          <div className="w-11 h-11 rounded-full bg-[#7C3AED] flex items-center justify-center">
+            <Sparkles className="w-6 h-6 text-white" />
           </div>
           <div>
-            <p className="font-black text-gray-900 text-base leading-tight">Asistente IA</p>
-            <p className="text-xs text-emerald-500 font-semibold">● En línea</p>
+            <p className="font-black text-gray-900 text-lg leading-tight">Asistente IA</p>
+            <p className="text-sm text-emerald-500 font-semibold">● En línea</p>
           </div>
         </div>
         <button onClick={() => setConfirmarLimpiar(true)}
-          className="p-2 rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+          className="p-2.5 rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
           title="Limpiar historial">
-          <Trash2 className="w-5 h-5" />
+          <Trash2 className="w-6 h-6" />
         </button>
       </div>
 
@@ -141,12 +141,12 @@ export default function Chat() {
           </div>
         ) : vacio ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-4 pt-8">
-            <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center">
-              <MessageCircle className="w-8 h-8 text-[#7C3AED]" />
+            <div className="w-20 h-20 rounded-full bg-purple-100 flex items-center justify-center">
+              <MessageCircle className="w-10 h-10 text-[#7C3AED]" />
             </div>
             <div>
-              <p className="font-black text-gray-900 text-lg">¡Hola! Soy tu asistente 💜</p>
-              <p className="text-gray-500 text-sm mt-1 max-w-xs">
+              <p className="font-black text-gray-900 text-xl">¡Hola! Soy tu asistente 💜</p>
+              <p className="text-gray-500 text-base mt-2 max-w-xs">
                 Usa los botones de abajo o cuéntame lo que pasó en tu negocio.
               </p>
             </div>
@@ -170,7 +170,7 @@ export default function Chat() {
             rows={1}
             disabled={enviando}
             className="flex-1 resize-none px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 text-base focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:opacity-60 max-h-28"
-            style={{ minHeight: '48px' }}
+            style={{ minHeight: '52px' }}
             onInput={e => {
               e.target.style.height = 'auto'
               e.target.style.height = Math.min(e.target.scrollHeight, 112) + 'px'
@@ -179,20 +179,20 @@ export default function Chat() {
           <button
             onClick={() => enviar()}
             disabled={!input.trim() || enviando}
-            className="w-12 h-12 rounded-2xl bg-[#7C3AED] text-white flex items-center justify-center hover:bg-[#5B21B6] transition-colors disabled:opacity-40 flex-shrink-0"
+            className="w-13 h-13 w-[52px] h-[52px] rounded-2xl bg-[#7C3AED] text-white flex items-center justify-center hover:bg-[#5B21B6] transition-colors disabled:opacity-40 flex-shrink-0"
           >
-            <Send className="w-5 h-5" />
+            <Send className="w-6 h-6" />
           </button>
         </div>
       </div>
 
-      {/* Acciones rápidas — debajo del input, llenan el espacio del nav */}
-      <div className="px-4 py-2 bg-white border-t border-purple-100 flex-shrink-0">
-        <div className="flex gap-2 overflow-x-auto">
+      {/* Acciones rápidas — más grandes */}
+      <div className="px-4 py-3 bg-white border-t border-purple-100 flex-shrink-0">
+        <div className="flex gap-2 overflow-x-auto pb-0.5">
           {ACCIONES_RAPIDAS.map(({ label, icon: Icon, msg }) => (
             <button key={label} onClick={() => enviar(msg)} disabled={enviando}
-              className="flex-shrink-0 flex items-center gap-1.5 bg-[#F5F3FF] border border-purple-200 rounded-full px-3 py-2 text-xs font-bold text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white hover:border-[#7C3AED] transition-colors disabled:opacity-50">
-              <Icon className="w-3 h-3" />
+              className="flex-shrink-0 flex items-center gap-2 bg-[#F5F3FF] border border-purple-200 rounded-xl px-4 py-2.5 text-sm font-bold text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white hover:border-[#7C3AED] transition-colors disabled:opacity-50">
+              <Icon className="w-4 h-4" />
               {label}
             </button>
           ))}
@@ -211,7 +211,7 @@ export default function Chat() {
                 </button>
               </div>
               <div className="bg-red-50 rounded-xl p-4 mb-5">
-                <p className="text-sm text-gray-700">Se borrarán todos los mensajes del chat. La IA no recordará conversaciones anteriores.</p>
+                <p className="text-base text-gray-700">Se borrarán todos los mensajes del chat. La IA no recordará conversaciones anteriores.</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={() => setConfirmarLimpiar(false)}
