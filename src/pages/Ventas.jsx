@@ -30,7 +30,7 @@ export default function Ventas() {
 
   const cargar = () => {
     setLoading(true)
-    api.get('/api/ventas', { params: { desde, hasta } })
+    api.get('/api/ventas', { params: { desde, hasta: hasta + 'T23:59:59' } })  // ✅
       .then(r => setVentas(r.data))
       .catch(() => toast.error('Error cargando ventas'))
       .finally(() => setLoading(false))
