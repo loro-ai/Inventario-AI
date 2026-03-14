@@ -154,7 +154,7 @@ export default function Chat() {
   const vacio = !loading && mensajes.length === 0
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-112px)] md:h-[calc(100dvh-56px)] max-w-2xl mx-auto">
+    <div className="flex flex-col h-[calc(100svh-112px)] md:h-[calc(100svh-56px)] max-w-2xl mx-auto">
 
       {/* Header chat */}
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-purple-100 flex-shrink-0">
