@@ -7,12 +7,12 @@ import { formatCOP, colorStock } from '../lib/utils'
 const CATEGORIAS = [
   { value: '', label: 'Todas' },
   { value: 'blusa', label: 'Blusa' },
+  { value: 'ropa_interior', label: 'Ropa interior' },
   { value: 'vestido', label: 'Vestido' },
   { value: 'pantalon', label: 'Pantalón' },
   { value: 'falda', label: 'Falda' },
   { value: 'conjunto', label: 'Conjunto' },
   { value: 'accesorio', label: 'Accesorio' },
-  { value: 'ropa_interior', label: 'Ropa interior' },
   { value: 'maquillaje', label: 'Maquillaje' },
   { value: 'bermuda', label: 'Bermuda' },
   { value: 'camiseta', label: 'Camiseta' },
