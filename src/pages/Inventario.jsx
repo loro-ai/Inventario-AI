@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Search, X, Package, Edit2, Trash2, ChevronDown, Calculator, Minus } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '../lib/api'
-import { formatCOP, colorStock } from '../lib/utils'
+import { formatCOP, colorStock, fechaRelativa } from '../lib/utils'
 
 const CATEGORIAS = [
   { value: '', label: 'Todas' },
@@ -42,6 +42,8 @@ export default function Inventario() {
   const [guardando, setGuardando] = useState(false)
   const [mostrarSelectorCantidad, setMostrarSelectorCantidad] = useState(false)
   const [verAgotados, setVerAgotados] = useState(false)
+  const [modalHistorial, setModalHistorial] = useState(null)
+  const [loadingHistorial, setLoadingHistorial] = useState(false)
 
   // Calculadora de inversión
   const [totalInvertido, setTotalInvertido] = useState('')
@@ -116,6 +118,19 @@ export default function Inventario() {
     setTotalInvertido(''); setMargenSugerido(null)
   }
 
+  const verHistorial = async (p) => {
+    setLoadingHistorial(true)
+    setModalHistorial({ producto: p, historial: [] })
+    try {
+      const { data } = await api.get(`/api/productos/${p._id}/historial`)
+      setModalHistorial(data)
+    } catch {
+      toast.error('Error cargando historial')
+    } finally {
+      setLoadingHistorial(false)
+    }
+  }
+
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
@@ -180,6 +195,11 @@ export default function Inventario() {
                 <div className="flex gap-2 flex-shrink-0">
                   <button onClick={() => handleEditar(p)} className="p-2.5 rounded-xl hover:bg-purple-50 text-gray-400 hover:text-[#7C3AED] transition-colors"><Edit2 className="w-5 h-5" /></button>
                   <button onClick={() => handleEliminar(p)} className="p-2.5 rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                  {p.cantidad === 0 && (
+                    <button onClick={() => verHistorial(p)} className="p-2.5 rounded-xl hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors" title="Ver historial">
+                      <Search className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="mt-3">
@@ -409,6 +429,85 @@ export default function Inventario() {
                   {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Agregar producto'}
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal historial producto agotado */}
+      {modalHistorial && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40">
+          <div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-2xl shadow-xl max-h-[85vh] overflow-y-auto">
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-black text-gray-900">{modalHistorial.producto?.nombre}</h2>
+                  <p className="text-sm text-gray-400 mt-0.5">Historial — quién lo compró o debe</p>
+                </div>
+                <button onClick={() => setModalHistorial(null)} className="p-2 rounded-xl hover:bg-gray-100"><X className="w-5 h-5" /></button>
+              </div>
+
+              {/* Info del producto */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {modalHistorial.producto?.talla && <span className="text-sm font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg">T.{modalHistorial.producto.talla.toUpperCase()}</span>}
+                {modalHistorial.producto?.color && <span className="text-sm text-gray-700 bg-gray-100 px-2.5 py-1 rounded-lg capitalize">{modalHistorial.producto.color}</span>}
+                <span className="text-sm font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-lg">Agotado</span>
+              </div>
+
+              {loadingHistorial ? (
+                <div className="flex justify-center py-8">
+                  <div className="w-8 h-8 rounded-full border-4 border-[#7C3AED] border-t-transparent animate-spin" />
+                </div>
+              ) : modalHistorial.historial?.length === 0 ? (
+                <div className="text-center py-8">
+                  <Package className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                  <p className="text-gray-400 font-semibold">Sin historial de ventas</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {modalHistorial.historial.map((h, i) => (
+                    <div key={i} className={`rounded-xl p-3 border ${
+                      h.tipo === 'credito' && h.saldoPendiente > 0
+                        ? 'bg-red-50 border-red-200'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {h.cliente
+                              ? <span className="font-bold text-gray-900 text-base">{h.cliente}</span>
+                              : <span className="text-gray-400 text-sm italic">Sin nombre</span>
+                            }
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              h.tipo === 'credito' && h.saldoPendiente > 0
+                                ? 'bg-red-100 text-red-700'
+                                : h.tipo === 'credito'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-purple-100 text-purple-700'
+                            }`}>
+                              {h.tipo === 'credito' && h.saldoPendiente > 0
+                                ? `Debe ${formatCOP(h.saldoPendiente)}`
+                                : h.tipo === 'credito'
+                                ? 'Pagó todo ✓'
+                                : 'Venta contado'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-0.5">
+                            {h.cantidad} und. · {formatCOP(h.total)} · {fechaRelativa(h.fecha)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Botón reabastecer */}
+              <button
+                onClick={() => { setModalHistorial(null); handleEditar(modalHistorial.producto) }}
+                className="w-full mt-4 bg-[#7C3AED] text-white font-black text-base py-4 rounded-xl hover:bg-[#5B21B6] transition-colors">
+                Reabastecer este producto
+              </button>
             </div>
           </div>
         </div>

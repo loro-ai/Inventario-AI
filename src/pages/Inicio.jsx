@@ -56,8 +56,11 @@ export default function Inicio() {
       <div className="grid grid-cols-2 gap-3">
         <MetricaCard titulo="Ventas del mes" valor={String(resumen?.totalVentasMes ?? 0)} icono={TrendingUp} color="bg-[#7C3AED]" subtitulo="unidades vendidas" />
         <MetricaCard titulo="Ganancias" valor={formatCOP(resumen?.gananciaMes ?? 0)} icono={DollarSign} color="bg-emerald-500" subtitulo="este mes" />
-        <MetricaCard titulo="Productos" valor={String(resumen?.totalProductos ?? 0)} icono={Package} color="bg-violet-500" subtitulo="en inventario" />
-        <MetricaCard titulo="Me deben" valor={formatCOP(resumen?.totalDeuda ?? 0)} icono={Users} color="bg-red-500" subtitulo="por cobrar" />
+        <MetricaCard titulo="En mi casa" valor={String(resumen?.totalProductos ?? 0)} icono={Package} color="bg-violet-500" subtitulo="productos con stock" />
+        <MetricaCard titulo="Agotados" valor={String(resumen?.totalAgotados ?? 0)} icono={Package} color="bg-gray-400" subtitulo="sin unidades" />
+        <div className="col-span-2">
+          <MetricaCard titulo="Me deben" valor={formatCOP(resumen?.totalDeuda ?? 0)} icono={Users} color="bg-red-500" subtitulo="por cobrar" />
+        </div>
       </div>
 
       {stockBajo.length > 0 && (
